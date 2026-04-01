@@ -73,6 +73,22 @@ class TransactionSerializer(serializers.ModelSerializer):
                 description=validated_data['description'],
                 idempotency_key=validated_data.get('idempotency_key')
             )
+
+        # --- Kafka message simulation ---
+        message = {
+            "event": "transaction_created",
+            "transaction_id": transaction_obj.id,
+            "account_id": account.id,
+            "type": transaction_obj.type,
+            "amount": str(transaction_obj.amount),
+            "description": transaction_obj.description,
+            "new_balance": str(account.balance),
+            "idempotency_key": transaction_obj.idempotency_key,
+            "timestamp": transaction_obj.created_at.isoformat() if transaction_obj.created_at else None,
+        }
+        print("Kafka message:", message)
+        # In real implementation: kafka_producer.send('transactions', value=message)
+
         return transaction_obj
 
 
@@ -202,6 +218,22 @@ class TransferSerializer(serializers.Serializer):
             to_account.save(update_fields=['balance'])
             debit_transaction.save()
             credit_transaction.save()
+
+        # --- Kafka message simulation ---
+        message = {
+            "event": "transfer_completed",
+            "from_account_id": from_account.id,
+            "to_account_id": to_account.id,
+            "amount": str(amount),
+            "description": description,
+            "debit_transaction_id": debit_transaction.id,
+            "credit_transaction_id": credit_transaction.id,
+            "idempotency_key": idempotency_key,
+            "timestamp": debit_transaction.created_at.isoformat() if debit_transaction.created_at else None,
+        }
+        print("Kafka message:", message)
+        # In real implementation, you'd send this to Kafka:
+        # kafka_producer.send('transfers', value=message)
 
         return True, {
             'debit_transaction': debit_transaction,
