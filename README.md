@@ -65,6 +65,11 @@ curl --location 'http://127.0.0.1:8000/api/v1/transfer/' \
 }'
 ```
 
+### Idempotency
+
+- Implemented without putting unique constraint on idempotency key, because in case of transfer two rows are created with same idempotency key.
+- Need to improve code using https://github.com/yoyowallet/django-idempotency-key but need to study documentation.
+
 ### Tradeoffs I made due to the timebox
 
 - Error response formating is inconsistent.
