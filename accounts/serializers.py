@@ -27,68 +27,85 @@ class AccountSerializer(serializers.ModelSerializer):
 
 
 class TransactionSerializer(serializers.ModelSerializer):
-    account_id = serializers.IntegerField(write_only=True)
+    account_id = serializers.IntegerField()
 
     class Meta:
         model = Transaction
-        fields = ['account_id', 'type', 'amount', 'description', 'idempotency_key']
+        fields = ['id', 'account_id', 'type', 'amount', 'description', 'idempotency_key']
 
     def validate(self, attrs):
-        """Basic validation before we get the lock."""
+        # Normalize idempotency key
+        idempotency_key = attrs.get('idempotency_key', '').strip() or None
+        attrs['idempotency_key'] = idempotency_key
+
+        # Run base field validation first
         attrs = super().validate(attrs)
-        # Optional: early balance check (stale, but gives immediate feedback)
+
+        # Idempotency check: if a key is provided, look for an existing transaction
+        if idempotency_key:
+            existing = Transaction.objects.filter(idempotency_key=idempotency_key).first()
+
+            if existing:
+                if (existing.type == attrs['type'] and
+                        existing.amount == attrs['amount'] and
+                        existing.description == attrs['description']):
+                    # Store the existing transaction for reuse in create()
+                    self.context['existing_transaction'] = existing
+                    return attrs
+                else:
+                    raise serializers.ValidationError(
+                        "Idempotency key already used with a different transaction."
+                    )
+
+        # No existing transaction – proceed with account lookup and balance validation
         account = get_object_or_404(Account, pk=attrs['account_id'])
+
         if attrs['type'] == 'DEBIT' and account.balance < attrs['amount']:
-            raise serializers.ValidationError(
-                {"non_field_errors": ["Insufficient funds."]}
-            )
-        # Store account for later use
+            raise serializers.ValidationError("Insufficient funds.")
+
         attrs['account'] = account
         return attrs
 
     def create(self, validated_data):
-        """Atomic creation of a transaction with balance update."""
-        with transaction.atomic():
-            # Re‑fetch with lock to prevent race conditions
-            account = Account.objects.select_for_update().get(pk=validated_data['account_id'])
+        # If we have an existing transaction from the idempotency check, return it
+        if 'existing_transaction' in self.context:
+            return self.context['existing_transaction']
+        else:
+            with transaction.atomic():
+                account = Account.objects.select_for_update().get(pk=validated_data['account_id'])
 
-            # Final balance check under lock
-            if validated_data['type'] == 'DEBIT':
-                if account.balance < validated_data['amount']:
-                    raise serializers.ValidationError(
-                        {"non_field_errors": ["Insufficient funds."]}
-                    )
-                account.balance -= validated_data['amount']
-            else:  # CREDIT
-                account.balance += validated_data['amount']
+                if validated_data['type'] == 'DEBIT':
+                    if account.balance < validated_data['amount']:
+                        raise serializers.ValidationError("Insufficient funds.")
+                    account.balance -= validated_data['amount']
+                else:  # CREDIT
+                    account.balance += validated_data['amount']
 
-            # Save the updated balance
-            account.save(update_fields=['balance'])
+                account.save(update_fields=['balance'])
 
-            # Create the transaction
-            transaction_obj = Transaction.objects.create(
-                account=account,
-                type=validated_data['type'],
-                amount=validated_data['amount'],
-                description=validated_data['description'],
-                idempotency_key=validated_data.get('idempotency_key')
-            )
+                transaction_obj = Transaction.objects.create(
+                    account=account,
+                    type=validated_data['type'],
+                    amount=validated_data['amount'],
+                    description=validated_data['description'],
+                    idempotency_key=validated_data.get('idempotency_key')
+                )
 
-        # --- Kafka message simulation ---
-        message = {
-            "event": "transaction_created",
-            "transaction_id": transaction_obj.id,
-            "account_id": account.id,
-            "type": transaction_obj.type,
-            "amount": str(transaction_obj.amount),
-            "description": transaction_obj.description,
-            "new_balance": str(account.balance),
-            "idempotency_key": transaction_obj.idempotency_key,
-            "timestamp": transaction_obj.created_at.isoformat() if transaction_obj.created_at else None,
-        }
-        print("Kafka message:", message)
+            # Kafka message simulation (only for new transactions)
+            message = {
+                "event": "transaction_created",
+                "transaction_id": transaction_obj.id,
+                "account_id": account.id,
+                "type": transaction_obj.type,
+                "amount": str(transaction_obj.amount),
+                "description": transaction_obj.description,
+                "new_balance": str(account.balance),
+                "idempotency_key": transaction_obj.idempotency_key,
+                "timestamp": transaction_obj.created_at.isoformat() if transaction_obj.created_at else None,
+            }
+            print("Kafka message:", message)
 
-        return transaction_obj
+            return transaction_obj
 
 
 class TransferSerializer(serializers.Serializer):

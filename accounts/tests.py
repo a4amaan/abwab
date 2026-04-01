@@ -111,8 +111,26 @@ class TransactionCreateAPITest(APITestCase):
         self.account.refresh_from_db()
         self.assertEqual(self.account.balance, Decimal("100.00"))
 
+    def test_transaction_idempotency(self):
+        """Duplicate idempotency key should return existing transaction without double applying."""
+        payload = {
+            "account_id": self.account.id,
+            "amount": "25.00",
+            "type": "CREDIT",
+            "description": "idempotent test",
+            "idempotency_key": "credit-003"
+        }
+        first = self.client.post(self.url, data=payload, format="json")
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.account.refresh_from_db()
+        balance_after_first = self.account.balance
+
+        second = self.client.post(self.url, data=payload, format="json")
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, balance_after_first)
+
     def test_transaction_idempotency_different_payload_rejected(self):
-        """Using the same idempotency key with a different amount should be rejected."""
         payload = {
             "account_id": self.account.id,
             "amount": "25.00",
