@@ -172,6 +172,39 @@ class TransferCreateAPITest(APITestCase):
 
         self.url = "/api/v1/transfer/"
 
+    def test_transfer_atomicity(self):
+        payload = {
+            "from_account_id": self.from_account.id,
+            "to_account_id": self.to_account.id,
+            "amount": "1000.00",
+            "type": "CREDIT",
+            "description": "atomicity test",
+            "idempotency_key": "atomic-001"
+        }
+        initial_from_balance = self.from_account.balance
+        initial_to_balance = self.to_account.balance
+
+        response = self.client.post(self.url, data=payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.from_account.refresh_from_db()
+        self.to_account.refresh_from_db()
+        self.assertEqual(self.from_account.balance, initial_from_balance)
+        self.assertEqual(self.to_account.balance, initial_to_balance)
+
+    def test_transfer_validation_invalid_account_id(self):
+        payload = {
+            "from_account_id": 99999,  # non-existent
+            "to_account_id": self.to_account.id,
+            "amount": "10.00",
+            "type": "CREDIT",
+            "description": "invalid from",
+            "idempotency_key": "invalid-001"
+        }
+        response = self.client.post(self.url, data=payload, format="json")
+        print(response.json())
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_create_transfer_success(self):
         payload = {
             "from_account_id": self.from_account.id,
