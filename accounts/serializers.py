@@ -87,7 +87,6 @@ class TransactionSerializer(serializers.ModelSerializer):
             "timestamp": transaction_obj.created_at.isoformat() if transaction_obj.created_at else None,
         }
         print("Kafka message:", message)
-        # In real implementation: kafka_producer.send('transactions', value=message)
 
         return transaction_obj
 
@@ -100,7 +99,6 @@ class TransferSerializer(serializers.Serializer):
     idempotency_key = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
     def validate(self, attrs):
-        """Perform validations that don't require row locks."""
         from_id = attrs['from_account_id']
         to_id = attrs['to_account_id']
         amount = attrs['amount']
