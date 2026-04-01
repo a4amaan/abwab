@@ -1,0 +1,13 @@
+# ignore .idea files
+.idea/
+
+# ignore venv files
+venv/
+
+db.sqlite3
+accounts/migrations
+
+*.pyc
+__pycache
+.env.dev
+.vscode/
