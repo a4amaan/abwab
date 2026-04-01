@@ -290,6 +290,14 @@ components:
       type: object
       description: Summary of a transaction, typically used in transfer responses.
       properties:
+        id:
+          type: integer
+          description: Unique identifier for the transaction
+          example: 6
+        account_id:
+          type: integer
+          description: ID of the associated account
+          example: 1
         type:
           type: string
           enum: [CREDIT, DEBIT]
@@ -299,7 +307,7 @@ components:
           type: number
           format: float
           description: Transaction amount
-          example: 3.00
+          example: 7.00
         description:
           type: string
           description: Transaction description
@@ -307,11 +315,11 @@ components:
         idempotency_key:
           type: string
           description: Idempotency key used (if provided)
-          example: optional-string-005
+          example: optional-string-0057
     ErrorResponse:
       type: object
       properties:
-        error:
+        message:
           type: string
           description: Error message
-          example: Account not found
+          example: Insufficient funds.
