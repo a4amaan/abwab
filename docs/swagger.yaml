@@ -1,0 +1,317 @@
+openapi: 3.0.0
+info:
+  title: Banking API
+  description: API for managing accounts, transactions, and transfers.
+  version: 1.0.0
+servers:
+  - url: http://127.0.0.1:8000/api/v1
+    description: Development server
+
+paths:
+  /account/:
+    get:
+      summary: List accounts
+      description: Retrieve a list of accounts. Can filter by currency or search by owner name.
+      tags:
+        - Accounts
+      parameters:
+        - name: currency
+          in: query
+          description: Filter accounts by currency (e.g., USD, EUR)
+          required: false
+          schema:
+            type: string
+            example: USD
+        - name: search
+          in: query
+          description: Search for accounts by owner name (partial match)
+          required: false
+          schema:
+            type: string
+            example: Khan
+      responses:
+        '200':
+          description: A list of accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+    post:
+      summary: Create a new account
+      description: Create a new bank account.
+      tags:
+        - Accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCreate'
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /account/{id}:
+    get:
+      summary: Get account by ID
+      description: Retrieve a single account by its ID.
+      tags:
+        - Accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the account to retrieve
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /transaction/:
+    post:
+      summary: Create a transaction
+      description: Create a credit or debit transaction for an account.
+      tags:
+        - Transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionCreate'
+      responses:
+        '201':
+          description: Transaction created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          description: Invalid request data (e.g., insufficient balance)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /transfer/:
+    post:
+      summary: Transfer funds between accounts
+      description: Transfer an amount from one account to another.
+      tags:
+        - Transfers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferCreate'
+      responses:
+        '201':
+          description: Transfer completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '400':
+          description: Invalid request data (e.g., insufficient funds, same account)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    Account:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the account
+          example: 1
+        owner_name:
+          type: string
+          description: Name of the account owner
+          example: Aman Khan
+        currency:
+          type: string
+          description: Currency code (ISO 4217)
+          enum: [USD, EUR, GBP, INR]
+          example: USD
+        balance:
+          type: number
+          format: float
+          description: Current account balance
+          example: 1000.00
+    AccountCreate:
+      type: object
+      required:
+        - owner_name
+        - currency
+        - balance
+      properties:
+        owner_name:
+          type: string
+          description: Name of the account owner
+          example: Aman Khan
+        currency:
+          type: string
+          description: Currency code (ISO 4217)
+          enum: [USD, EUR, GBP, INR]
+          example: USD
+        balance:
+          type: number
+          format: float
+          description: Initial deposit amount
+          example: 1000.00
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the transaction
+          example: 101
+        account_id:
+          type: integer
+          description: ID of the associated account
+          example: 1
+        type:
+          type: string
+          description: Transaction type (credit or debit)
+          enum: [CREDIT, DEBIT]
+          example: CREDIT
+        amount:
+          type: number
+          format: float
+          description: Transaction amount
+          example: 1000.00
+        description:
+          type: string
+          description: Optional description of the transaction
+          example: Salary
+        idempotency_key:
+          type: string
+          description: Optional key to prevent duplicate processing
+          example: optional-string
+        timestamp:
+          type: string
+          format: date-time
+          description: When the transaction was recorded
+          example: 2025-03-26T10:30:00Z
+    TransactionCreate:
+      type: object
+      required:
+        - account_id
+        - type
+        - amount
+      properties:
+        account_id:
+          type: integer
+          description: ID of the account to credit/debit
+          example: 1
+        type:
+          type: string
+          description: Transaction type (credit or debit)
+          enum: [CREDIT, DEBIT]
+          example: CREDIT
+        amount:
+          type: number
+          format: float
+          description: Transaction amount
+          example: 1000.00
+        description:
+          type: string
+          description: Optional description
+          example: Salary
+        idempotency_key:
+          type: string
+          description: Optional idempotency key to ensure safe retries
+          example: optional-string
+    TransferCreate:
+      type: object
+      required:
+        - from_account_id
+        - to_account_id
+        - amount
+      properties:
+        from_account_id:
+          type: integer
+          description: Source account ID
+          example: 1
+        to_account_id:
+          type: integer
+          description: Destination account ID
+          example: 2
+        amount:
+          type: number
+          format: float
+          description: Amount to transfer
+          example: 3.00
+        description:
+          type: string
+          description: Optional description
+          example: Pay back lunch
+        idempotency_key:
+          type: string
+          description: Optional idempotency key
+          example: optional-string-005
+    TransferResponse:
+      type: object
+      description: Response after a successful transfer, containing the debit and credit transaction details.
+      properties:
+        debit_transaction:
+          $ref: '#/components/schemas/TransactionSummary'
+        credit_transaction:
+          $ref: '#/components/schemas/TransactionSummary'
+    TransactionSummary:
+      type: object
+      description: Summary of a transaction, typically used in transfer responses.
+      properties:
+        type:
+          type: string
+          enum: [CREDIT, DEBIT]
+          description: Transaction type
+          example: DEBIT
+        amount:
+          type: number
+          format: float
+          description: Transaction amount
+          example: 3.00
+        description:
+          type: string
+          description: Transaction description
+          example: Pay back lunch
+        idempotency_key:
+          type: string
+          description: Idempotency key used (if provided)
+          example: optional-string-005
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Account not found
