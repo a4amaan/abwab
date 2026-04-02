@@ -4,8 +4,11 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from accounts.models import Transaction
+from accounts.publisher import EventPublisher
 
 logger = logging.getLogger(__name__)
+
+publisher = EventPublisher()
 
 
 @receiver(post_save, sender=Transaction)
@@ -23,4 +26,4 @@ def send_transaction_to_kafka(sender, instance, created, **kwargs):
         'description': instance.description,
         'idempotency_key': instance.idempotency_key,
     }
-    print('KAFKA', event_data)
+    publisher.publish(instance.type, event_data)
