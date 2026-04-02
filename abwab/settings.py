@@ -97,7 +97,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 REST_FRAMEWORK = {
-    'EXCEPTION_HANDLER': 'accounts.utils.custom_exception_handler'
+    'EXCEPTION_HANDLER': 'accounts.exceptions.custom_exception_handler'
 }
 
 LANGUAGE_CODE = 'en-us'
