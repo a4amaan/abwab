@@ -10,8 +10,31 @@ Ensure the following tools are installed:
 
 ### Run Application using Docker
 
+
+### Build App
+
+```bash
+make build
+```
+
+
+### Run Application
+
 ```bash
 make up-app
+```
+
+
+### Run Tests
+
+```bash
+make run-tests
+```
+
+### View Test Coverage
+
+```bash
+make coverage
 ```
 
 ### Run Tests (Run this command in a seperate window and web app should be running)
@@ -65,11 +88,6 @@ curl --location 'http://127.0.0.1:8000/api/v1/transfer/' \
 }'
 ```
 
-### Idempotency
-
-- Implemented without putting unique constraint on idempotency key, because in case of transfer two rows are created with same idempotency key.
-- Need to improve code using https://github.com/yoyowallet/django-idempotency-key but need to study documentation.
-
 ### Tradeoffs I made due to the timebox
 
 - Error response formating is inconsistent.
@@ -81,3 +99,6 @@ curl --location 'http://127.0.0.1:8000/api/v1/transfer/' \
 - Readme need to be more detailed.
 - Use Third-party packages for OpenAPI support (drf-spectacular, drf-yasg)
 
+### Assumptions
+
+- Need to send 2 events for each transfer, that's why publishing message is added in signal.

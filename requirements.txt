@@ -7,4 +7,5 @@ packaging==26.0
 psycopg2-binary==2.9.6
 sqlparse==0.5.5
 typing_extensions==4.13.2
+coverage==7.13.5
 django-filter

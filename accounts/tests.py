@@ -34,7 +34,7 @@ class AccountCreateAPITest(APITestCase):
         }
         response = self.client.post("/api/v1/account/", data=payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("owner_name", response.data)
+        self.assertIn("owner_name", response.data["error"]["details"])
 
     def test_create_account_negative_balance(self):
         payload = {
@@ -44,7 +44,7 @@ class AccountCreateAPITest(APITestCase):
         }
         response = self.client.post("/api/v1/account/", data=payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("balance", response.data)
+        self.assertIn("balance", response.data["error"]["details"])
 
     def test_create_account_invalid_currency(self):
         payload = {
@@ -54,7 +54,22 @@ class AccountCreateAPITest(APITestCase):
         }
         response = self.client.post("/api/v1/account/", data=payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("currency", response.data)
+        self.assertIn("currency", response.data["error"]["details"])
+
+    def test_get_account_success(self):
+        account = Account.objects.create(
+            owner_name="Saif",
+            balance=Decimal("100.00"),
+            currency="USD"
+        )
+
+        response = self.client.get(f"/api/v1/account/{account.id}/")
+        # print(response.data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], 1)
+        self.assertEqual(response.data["owner_name"], "Saif")
+        self.assertEqual(response.data["balance"], "100.00")
 
 
 class TransactionCreateAPITest(APITestCase):
@@ -158,7 +173,7 @@ class TransactionCreateAPITest(APITestCase):
         }
         response = self.client.post(self.url, data=payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("description", response.data)
+        self.assertIn("description", response.data["error"]["details"])
         # self.assertIn("idempotency_key", response.data)
 
     def test_transaction_validation_negative_amount(self):
@@ -171,7 +186,7 @@ class TransactionCreateAPITest(APITestCase):
         }
         response = self.client.post(self.url, data=payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("amount", response.data)
+        self.assertIn("amount", response.data["error"]["details"])
 
 
 class TransferCreateAPITest(APITestCase):
@@ -332,4 +347,4 @@ class TransferCreateAPITest(APITestCase):
         }
         response = self.client.post(self.url, data=payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("amount", response.data)
+        self.assertIn("amount", response.data["error"]["details"])
